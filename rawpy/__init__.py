@@ -19,3 +19,19 @@ def imread(pathOrFile):
     else:
         d.open_file(pathOrFile)
     return d
+
+
+def imread_frame(pathOrFile, frame_idx):
+    """
+    Convenience function that creates a :class:`rawpy.RawPy` instance with frame index,
+    opens the given file, and returns the :class:`rawpy.RawPy` instance for further processing.
+
+    :param str|file pathOrFile: path or file object of RAW image that will be read
+    :rtype: :class:`rawpy.RawPy`
+    """
+    d = RawPy()
+    if hasattr(pathOrFile, 'read'):
+        d.open_buffer(pathOrFile)
+    else:
+        d.open_file_frame(pathOrFile, frame_idx)
+    return d

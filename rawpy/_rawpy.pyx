@@ -88,13 +88,15 @@ cdef extern from "libraw.h":
         ushort (*color3_image)[3] # 3 components per pixel, sRAW/mRAW files, RawSpeed decoding
         libraw_colordata_t          color
         
+    ctypedef struct libraw_raw_unpack_params_t:
+        unsigned    shot_select    # -s
+
     ctypedef struct libraw_output_params_t:
         unsigned    greybox[4]     # -A  x1 y1 x2 y2 
         unsigned    cropbox[4]     # -B x1 y1 x2 y2 
         double      aber[4]        # -C 
         double      gamm[6]        # -g 
         float       user_mul[4]    # -r mul0 mul1 mul2 mul3 
-        unsigned    shot_select    # -s 
         float       bright         # -b 
         float       threshold      #  -n 
         int         half_size      # -h 
@@ -175,6 +177,7 @@ cdef extern from "libraw.h":
         libraw_image_sizes_t        sizes
         libraw_iparams_t            idata
         libraw_output_params_t        params
+        libraw_raw_unpack_params_t  rawparams
 #         unsigned int                progress_flags
 #         unsigned int                process_warnings
         libraw_colordata_t          color
@@ -409,7 +412,31 @@ cdef class RawPy:
         ELSE:
             res = self.p.open_file(path.encode('UTF-8'))
         self.handle_error(res)
-    
+
+    def open_file_frame(self, path, frame_idx):
+        """
+        Opens the given RAW image file. Should be followed by a call to :meth:`~rawpy.RawPy.unpack`.
+
+        .. NOTE:: This is a low-level method, consider using :func:`rawpy.imread` instead.
+
+        :param str path: The path to the RAW image.
+        """
+        cdef wchar_t *wchars
+        cdef Py_ssize_t wchars_len
+        self.unpack_called = False
+        self.unpack_thumb_called = False
+        IF UNAME_SYSNAME == "Windows":
+            wchars = PyUnicode_AsWideCharString(path, &wchars_len)
+            if wchars == NULL:
+                raise RuntimeError('cannot convert unicode path to wide chars')
+            self.p.imgdata.rawparams.shot_select = frame_idx
+            res = self.p.open_file(wchars)
+            PyMem_Free(wchars)
+        ELSE:
+            self.p.imgdata.rawparams.shot_select = frame_idx
+            res = self.p.open_file(path.encode('UTF-8'))
+        self.handle_error(res)
+
     def open_buffer(self, fileobj):
         """
         Opens the given RAW image file-like object. Should be followed by a call to :meth:`~rawpy.RawPy.unpack`.
