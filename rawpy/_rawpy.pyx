@@ -211,6 +211,10 @@ IF UNAME_SYSNAME == "Windows":
             void free_image() nogil
             const char* strerror(int p) nogil
             void recycle() nogil
+            int open_bayer(unsigned char *data, unsigned datalen, ushort _raw_width, ushort _raw_height,
+                        ushort _left_margin, ushort _top_margin, ushort _right_margin, ushort _bottom_margin, unsigned char procflags,
+                        unsigned char bayer_pattern,
+                        unsigned unused_bits, unsigned otherflags, unsigned black_level) nogil
 ELSE:
     cdef extern from "libraw.h":
         cdef cppclass LibRaw:
@@ -228,6 +232,10 @@ ELSE:
             void free_image() nogil
             const char* strerror(int p) nogil
             void recycle() nogil
+            int open_bayer(unsigned char *data, unsigned datalen, ushort _raw_width, ushort _raw_height,
+                        ushort _left_margin, ushort _top_margin, ushort _right_margin, ushort _bottom_margin, unsigned char procflags,
+                        unsigned char bayer_pattern,
+                        unsigned unused_bits, unsigned otherflags, unsigned black_level) nogil
 
 libraw_version = (LIBRAW_MAJOR_VERSION, LIBRAW_MINOR_VERSION, LIBRAW_PATCH_VERSION)
 
@@ -455,6 +463,27 @@ cdef class RawPy:
             e = self.p.open_buffer(buf, buf_len)
         self.handle_error(e)
     
+    def open_bayer(self, buffer, width, height, bayer_pattern):
+        """
+        Opens the given bayer image buffer. Should be followed by a call to :meth:`~rawpy.RawPy.unpack`.
+
+        :param bytes buffer: bayer image buffer.
+        :param int width: image width
+        :param int height: image height
+        :param BayerPattern bayer_pattern: bayer pattern
+        """
+        self.unpack_called = False
+        self.unpack_thumb_called = False
+        # we keep a reference to the byte buffer to avoid garbage collection
+        cdef unsigned char *buf = buffer
+        buf_len = len(buffer)
+        cdef ushort w = width
+        cdef ushort h = height
+        cdef unsigned char bp = bayer_pattern.value
+        with nogil:
+            e = self.p.open_bayer(buf, buf_len, w, h, 0, 0, 0, 0, 0, bp, 0, 0, 0)
+        self.handle_error(e)
+
     def unpack(self):
         """
         Unpacks/decodes the opened RAW image.
@@ -979,6 +1008,12 @@ cdef class RawPy:
                 raise LibRawFatalError(errstr)
             else:
                 raise LibRawNonFatalError(errstr)
+
+class BayerPattern(Enum):
+    RGGB=0x94
+    BGGR=0x16
+    GRBG=0x61
+    GBRG=0x49
 
 class DemosaicAlgorithm(Enum):
     """
